@@ -96,10 +96,17 @@ Die Aktion besitzt das Pflichtfeld **Neues AWTRIX-Zielgerät** (`target_awtrix_d
 - Ziel-AWTRIX-Geräteauswahl aus v0.1.1 bleibt erhalten.
 
 
-## Version 0.1.4
+## Version 0.1.5
 
 - echter sichtbarer Config-Flow mit Formular
 - Auswahl des Standard-AWTRIX-NG-Zielgeräts beim Einrichten
 - Standard-Präfix für neu erzeugte Automationen im Config-Flow
 - Zielgerät und Präfix können in der Migrations-Aktion optional überschrieben werden
 - bestehende Quellautomationen werden weiterhin niemals gelöscht
+
+
+## v0.1.5
+
+- Liest die ursprünglichen Blueprint-Inputs zuverlässig aus `automations.yaml` statt aus der bereits expandierten `raw_config`.
+- Fallback auf die von Home Assistant gehaltenen Blueprint-Inputs für Sonderfälle.
+- Konkrete Fehler werden als Home-Assistant-Benachrichtigung angezeigt und als `ServiceValidationError` an die UI zurückgegeben.

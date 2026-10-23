@@ -83,6 +83,20 @@ def _build_migrate_schema(has_default_target: bool) -> Any:
     )
 
 
+async def _async_notify_error(hass: HomeAssistant, message: str) -> None:
+    """Expose migration errors in the UI instead of only 'Unknown error'."""
+    await hass.services.async_call(
+        "persistent_notification",
+        "create",
+        {
+            "title": "AWTRIX Blueprint Migrator – Fehler",
+            "message": message,
+            "notification_id": "awtrix_blueprint_migrator_last_error",
+        },
+        blocking=False,
+    )
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up AWTRIX Blueprint Migrator."""
     # Import HA automation internals only after the config flow has created the
@@ -109,30 +123,49 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not data.get(_DATA_REGISTERED):
 
         async def handle_migrate(call: ServiceCall) -> None:
-            async with data[_DATA_LOCK]:
-                target_awtrix_device = call.data.get(
-                    CONF_TARGET_AWTRIX_DEVICE,
-                    entry.data.get(CONF_TARGET_AWTRIX_DEVICE),
-                )
-                if not target_awtrix_device:
-                    raise ValueError(
-                        "Kein AWTRIX-Zielgerät konfiguriert. "
-                        "Bitte Integration neu einrichten oder Zielgerät in der Aktion angeben."
-                    )
+            from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 
-                result = await async_migrate(
-                    hass,
-                    list(call.data[CONF_AUTOMATIONS]),
-                    target_awtrix_device=target_awtrix_device,
-                    name_prefix=call.data.get(
-                        CONF_NAME_PREFIX,
-                        entry.data.get(CONF_NAME_PREFIX, DEFAULT_NAME_PREFIX),
-                    ),
-                    disable_originals=call.data[CONF_DISABLE_ORIGINALS],
-                    skip_existing=call.data[CONF_SKIP_EXISTING],
-                    dry_run=call.data[CONF_DRY_RUN],
-                )
-                await async_notify_result(hass, result)
+            async with data[_DATA_LOCK]:
+                try:
+                    target_awtrix_device = call.data.get(
+                        CONF_TARGET_AWTRIX_DEVICE,
+                        entry.data.get(CONF_TARGET_AWTRIX_DEVICE),
+                    )
+                    if not target_awtrix_device:
+                        raise HomeAssistantError(
+                            "Kein AWTRIX-Zielgerät konfiguriert. "
+                            "Bitte Integration neu einrichten oder Zielgerät in der Aktion angeben."
+                        )
+
+                    result = await async_migrate(
+                        hass,
+                        list(call.data[CONF_AUTOMATIONS]),
+                        target_awtrix_device=target_awtrix_device,
+                        name_prefix=call.data.get(
+                            CONF_NAME_PREFIX,
+                            entry.data.get(CONF_NAME_PREFIX, DEFAULT_NAME_PREFIX),
+                        ),
+                        disable_originals=call.data[CONF_DISABLE_ORIGINALS],
+                        skip_existing=call.data[CONF_SKIP_EXISTING],
+                        dry_run=call.data[CONF_DRY_RUN],
+                    )
+                    await async_notify_result(hass, result)
+                except ServiceValidationError:
+                    raise
+                except HomeAssistantError as err:
+                    await _async_notify_error(hass, str(err))
+                    raise ServiceValidationError(str(err)) from err
+                except Exception as err:
+                    import logging
+
+                    logging.getLogger(__name__).exception(
+                        "Unexpected error during AWTRIX blueprint migration"
+                    )
+                    message = f"{type(err).__name__}: {err}"
+                    await _async_notify_error(hass, message)
+                    raise ServiceValidationError(
+                        f"AWTRIX-Migration fehlgeschlagen: {message}"
+                    ) from err
 
         hass.services.async_register(
             DOMAIN,

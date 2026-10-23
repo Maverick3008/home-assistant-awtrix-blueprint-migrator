@@ -94,6 +94,51 @@ def _already_migrated(
     return False
 
 
+def _find_source_raw_config(
+    source: Any,
+    entity_id: str,
+    automations_data: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Return the original, unexpanded automation config.
+
+    For blueprint automations Home Assistant's public ``raw_config`` is the
+    expanded automation in current releases. The original ``use_blueprint``
+    block is therefore read from automations.yaml by the automation's unique
+    ID. A private blueprint-input fallback is kept for unusual setups where
+    the automation entity exists but is not stored in automations.yaml.
+    """
+    from homeassistant.exceptions import HomeAssistantError
+
+    source_id = getattr(source, "unique_id", None)
+    if source_id is not None:
+        source_id_text = str(source_id)
+        for item in automations_data:
+            if not isinstance(item, dict):
+                continue
+            item_id = item.get("id")
+            if item_id is not None and str(item_id) == source_id_text:
+                return item
+
+    # Current Home Assistant keeps the original blueprint declaration on the
+    # entity separately from the expanded raw_config. This is intentionally
+    # only a fallback because it is an internal attribute and may change.
+    blueprint_inputs = getattr(source, "_blueprint_inputs", None)
+    if isinstance(blueprint_inputs, dict) and isinstance(
+        blueprint_inputs.get("use_blueprint"), dict
+    ):
+        raw = copy.deepcopy(blueprint_inputs)
+        if source_id is not None:
+            raw.setdefault("id", str(source_id))
+        raw.setdefault("alias", getattr(source, "name", None) or entity_id)
+        return raw
+
+    raise HomeAssistantError(
+        f"{entity_id}: Die Originalkonfiguration konnte nicht gefunden werden. "
+        "Die Automation muss in automations.yaml gespeichert sein oder als "
+        "Blueprint-Automation geladen sein."
+    )
+
+
 def _source_alias(hass: HomeAssistant, entity_id: str, raw: dict[str, Any]) -> str:
     """Get a human-friendly source alias."""
     alias = raw.get("alias")
@@ -250,11 +295,7 @@ async def async_migrate(
         if source is None:
             raise HomeAssistantError(f"Automation nicht gefunden: {entity_id}")
 
-        raw_config = getattr(source, "raw_config", None)
-        if not isinstance(raw_config, dict):
-            raise HomeAssistantError(
-                f"{entity_id}: Die ursprüngliche Automation-Konfiguration ist nicht verfügbar."
-            )
+        raw_config = _find_source_raw_config(source, entity_id, current)
 
         use_blueprint = raw_config.get("use_blueprint")
         if not isinstance(use_blueprint, dict):
