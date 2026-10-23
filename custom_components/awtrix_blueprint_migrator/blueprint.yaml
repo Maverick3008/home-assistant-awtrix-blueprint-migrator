@@ -139,6 +139,12 @@ blueprint:
       icon: mdi:source-branch
       collapsed: true
       input:
+        periodic_refresh:
+          name: Alle 5 Minuten aktualisieren
+          description: Sendet die App zusätzlich alle 5 Minuten erneut.
+          default: true
+          selector:
+            boolean: {}
         extra_triggers:
           name: Zusätzliche Trigger
           description: >
@@ -183,10 +189,10 @@ max_exceeded: silent
 
 variables:
   device_ids: !input awtrix_device
-  app_name: !input app_name
+  app_name_raw: !input app_name
   layout: !input layout
   ents: !input entities
-  icon_default: !input icon
+  icon_input: !input icon
   color: !input color
   prefix_1: !input prefix_text
   suffix_1: !input suffix_text
@@ -194,6 +200,7 @@ variables:
   suffix_2: !input suffix_text_2
   prefix_3: !input prefix_text_3
   suffix_3: !input suffix_text_3
+  periodic_refresh_enabled: !input periodic_refresh
   remove_when_false: !input remove_when_conditions_false
   user_options_input: !input user_options
 
@@ -218,18 +225,43 @@ triggers:
   - trigger: event
     event_type: automation_reloaded
     id: __awtrix_automation_reloaded
+  - trigger: time_pattern
+    minutes: "/5"
+    id: __awtrix_periodic
   - trigger: mqtt
     topic: "+/availability"
     payload: "online"
     id: __awtrix_online
   - triggers: !input extra_triggers
 
-conditions:
-  - condition: template
-    value_template: >-
-      {{ trigger.id != '__awtrix_online' or trigger.topic in availability_topics }}
+conditions: []
 
 actions:
+  - variables:
+      safe_app_name: >-
+        {% set name =
+          app_name_raw
+          | string
+          | lower
+          | replace('ä', 'ae')
+          | replace('ö', 'oe')
+          | replace('ü', 'ue')
+          | replace('ß', 'ss')
+          | regex_replace('\s+', '')
+          | regex_replace('[^a-z0-9_-]', '')
+        %}
+        {{ name[:32] if name else 'awtrixapp' }}
+
+  - condition: template
+    value_template: >-
+      {% if trigger is not defined or trigger is none %}
+        true
+      {% elif trigger.id | default('') == '__awtrix_periodic' %}
+        {{ periodic_refresh_enabled }}
+      {% else %}
+        true
+      {% endif %}
+
   - choose: []
     default: !input pre_actions
 
@@ -295,7 +327,7 @@ actions:
         {% endif %}
 
       icon_final: >-
-        {{ custom_icon if custom_icon | string | trim else icon_default }}
+        {{ custom_icon if custom_icon | string | trim else icon_input }}
 
       title_1: >-
         {% if custom_title | string | trim %}
@@ -394,7 +426,13 @@ actions:
                     {{ awtrix_prefix not in ['', 'unknown', 'unavailable', 'none'] }}
                 - condition: template
                   value_template: >-
-                    {{ trigger.id != '__awtrix_online' or trigger.topic == awtrix_prefix ~ '/availability' }}
+                    {% if trigger is not defined or trigger is none %}
+                      true
+                    {% elif trigger.id | default('') == '__awtrix_online' %}
+                      {{ trigger.topic | default('') == awtrix_prefix ~ '/availability' }}
+                    {% else %}
+                      true
+                    {% endif %}
               sequence:
                 - if: !input additional_conditions
                   then:
@@ -405,20 +443,23 @@ actions:
                           sequence:
                             - action: mqtt.publish
                               data:
-                                topic: "{{ awtrix_prefix ~ '/cmd/apps/pushed/' ~ app_name }}"
+                                topic: "{{ awtrix_prefix ~ '/cmd/apps/pushed/' ~ safe_app_name }}"
                                 payload: >-
-                                  {% set p = dict(normalized_user_options, text=value_1) %}
-                                  {% if icon_final | string | trim %}
-                                    {% set p = dict(p, icon=icon_final) %}
-                                  {% endif %}
-                                  {% if color %}
-                                    {% set p = dict(p, textColor=color) %}
-                                  {% endif %}
-                                  {{ p | to_json }}
+                                  {% set selected_icon = custom_icon if custom_icon | string | trim else icon_input %}
+                                  {% set safe_icon = selected_icon | string | trim | replace('\\', '\\\\') | replace('"', '\\"') %}
+                                  {% set safe_text = value_1 | string | replace('\\', '\\\\') | replace('"', '\\"') %}
+                                  {
+                                  {% for key, val in normalized_user_options.items() %}
+                                  {{ key | to_json }}:{{ val | to_json }},
+                                  {% endfor %}
+                                  "text":"{{ safe_text }}"
+                                  {% if safe_icon %},"icon":"{{ safe_icon }}"{% endif %}
+                                  {% if color %},"textColor":{{ color | to_json }}{% endif %}
+                                  }
                       default:
                         - action: mqtt.publish
                           data:
-                            topic: "{{ awtrix_prefix ~ '/cmd/apps/pushed/' ~ app_name }}"
+                            topic: "{{ awtrix_prefix ~ '/cmd/apps/pushed/' ~ safe_app_name }}"
                             payload: >-
                               {{ dict(normalized_user_options, layout={"version": 1, "regions": regions}) | to_json }}
                   else:
@@ -428,5 +469,5 @@ actions:
                       then:
                         - action: mqtt.publish
                           data:
-                            topic: "{{ awtrix_prefix ~ '/cmd/apps/pushed/' ~ app_name }}"
+                            topic: "{{ awtrix_prefix ~ '/cmd/apps/pushed/' ~ safe_app_name }}"
                             payload: ""

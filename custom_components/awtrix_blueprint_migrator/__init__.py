@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-import shutil
 from typing import TYPE_CHECKING, Any
 
 from .const import (
@@ -40,14 +39,13 @@ def _install_bundled_blueprint(config_dir: str) -> None:
     target_dir.mkdir(parents=True, exist_ok=True)
     target = target_dir / TARGET_BLUEPRINT_FILENAME
 
-    source_bytes = source.read_bytes()
-    if target.exists() and target.read_bytes() == source_bytes:
+    # Never overwrite a blueprint the user already has at the target path.
+    # The blueprint is frequently edited independently from this integration,
+    # and replacing it on every integration restart can silently revert fixes.
+    if target.exists():
         return
 
-    if target.exists():
-        backup = target.with_suffix(target.suffix + ".bak")
-        shutil.copy2(target, backup)
-
+    source_bytes = source.read_bytes()
     tmp = target.with_suffix(target.suffix + ".tmp")
     tmp.write_bytes(source_bytes)
     tmp.replace(target)

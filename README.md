@@ -1,4 +1,4 @@
-# AWTRIX Blueprint Migrator v0.1.6
+# AWTRIX Blueprint Migrator v0.1.7
 
 # AWTRIX Blueprint Migrator
 
@@ -119,3 +119,13 @@ Die Aktion besitzt das Pflichtfeld **Neues AWTRIX-Zielgerät** (`target_awtrix_d
 - Entfernt die Abhängigkeit von `homeassistant.components.automation.const.DATA_COMPONENT`.
 - Ordnet ausgewählte Automation-Entities über das Home-Assistant Entity Registry ihrer `id` in `automations.yaml` zu.
 - Dadurch kompatibler mit Home-Assistant-Versionen, in denen sich Automation-Interna geändert haben.
+
+
+## v0.1.7
+
+- Der `app_name` wird bereits **während der Migration** AWTRIX-NG-kompatibel normalisiert.
+  Beispiel: `Tage bis zur Hochzeit` → `tagebiszurhochzeit`.
+- Regeln: Kleinbuchstaben, `ä/ö/ü/ß` → `ae/oe/ue/ss`, Leerzeichen entfernt, nur `a-z`, `0-9`, `_`, `-`, maximal 32 Zeichen.
+- Die erzeugte Automation enthält den bereinigten Namen direkt im `use_blueprint.input.app_name`.
+- Bereits vorhandene Ziel-Blueprint-Dateien werden beim Start der Integration **nicht mehr überschrieben**. Eigene Blueprint-Anpassungen bleiben dadurch erhalten.
+- Der mitgelieferte Blueprint enthält zusätzlich die aktuelle App-Namen-Absicherung, 5-Minuten-Refresh und die String-Ausgabe für numerische Icon-IDs.

@@ -6,6 +6,7 @@ import copy
 from datetime import datetime
 import logging
 import os
+import re
 import shutil
 from typing import Any, TYPE_CHECKING
 import uuid
@@ -34,6 +35,27 @@ def _as_text(value: Any) -> str:
     if value is None:
         return ""
     return value if isinstance(value, str) else str(value)
+
+
+def _normalize_app_name(value: Any) -> str:
+    """Return an AWTRIX-NG-safe pushed-app name.
+
+    AWTRIX NG accepts only A-Z/a-z, 0-9, underscore and hyphen, with a
+    maximum length of 32 characters.  Migrated automations intentionally
+    store the normalized value in their blueprint input so the generated
+    automation is valid even before the blueprint applies its own safeguard.
+    """
+    name = _as_text(value).strip().lower()
+    name = (
+        name.replace("ä", "ae")
+        .replace("ö", "oe")
+        .replace("ü", "ue")
+        .replace("ß", "ss")
+    )
+    name = re.sub(r"\s+", "", name)
+    name = re.sub(r"[^a-z0-9_-]", "", name)
+    name = name[:32]
+    return name or "awtrixapp"
 
 
 def _read_automations_file(path: str) -> list[dict[str, Any]]:
@@ -180,8 +202,17 @@ def _map_legacy_inputs(
     if not entities:
         raise HomeAssistantError("Die alte Automation enthält keine Entität.")
 
+    original_app_name = copy.deepcopy(old_inputs.get("app_name", "awtrix_app"))
+    normalized_app_name = _normalize_app_name(original_app_name)
+
+    if _as_text(original_app_name) != normalized_app_name:
+        warnings.append(
+            f"App-Name normalisiert: {_as_text(original_app_name)!r} -> "
+            f"{normalized_app_name!r}"
+        )
+
     new_inputs: dict[str, Any] = {
-        "app_name": copy.deepcopy(old_inputs.get("app_name", "awtrix_app")),
+        "app_name": normalized_app_name,
         "layout": "icon_value",
         "entities": entities,
         "icon": copy.deepcopy(old_inputs.get("app_icon", old_inputs.get("icon", ""))),
