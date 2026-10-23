@@ -85,6 +85,6 @@ auch geladen werden. Wenn du ausschließlich `!include_dir_merge_list` für Auto
 verwendest, musst du `automations.yaml` zusätzlich einbinden.
 
 
-### Neue Option ab v0.1.1
+### Neue Option ab v0.1.2
 
 Die Aktion besitzt das Pflichtfeld **Neues AWTRIX-Zielgerät** (`target_awtrix_device`). Alle ausgewählten alten Automationen werden auf dieses Gerät kopiert. Die Quellautomationen bleiben unverändert.
