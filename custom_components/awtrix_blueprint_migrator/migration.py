@@ -95,47 +95,59 @@ def _already_migrated(
 
 
 def _find_source_raw_config(
-    source: Any,
+    hass: HomeAssistant,
     entity_id: str,
     automations_data: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """Return the original, unexpanded automation config.
+    """Return the original automation config from automations.yaml.
 
-    For blueprint automations Home Assistant's public ``raw_config`` is the
-    expanded automation in current releases. The original ``use_blueprint``
-    block is therefore read from automations.yaml by the automation's unique
-    ID. A private blueprint-input fallback is kept for unusual setups where
-    the automation entity exists but is not stored in automations.yaml.
+    Home Assistant stores the automation ``id`` as the entity registry
+    ``unique_id``.  Using the registry avoids depending on the private
+    automation EntityComponent / DATA_COMPONENT internals, which have moved
+    between Home Assistant releases.
     """
     from homeassistant.exceptions import HomeAssistantError
+    from homeassistant.helpers import entity_registry as er
 
-    source_id = getattr(source, "unique_id", None)
+    registry = er.async_get(hass)
+    registry_entry = registry.async_get(entity_id)
+
+    source_id: str | None = None
+    if registry_entry is not None and registry_entry.unique_id:
+        source_id = str(registry_entry.unique_id)
+
     if source_id is not None:
-        source_id_text = str(source_id)
         for item in automations_data:
             if not isinstance(item, dict):
                 continue
             item_id = item.get("id")
-            if item_id is not None and str(item_id) == source_id_text:
+            if item_id is not None and str(item_id) == source_id:
                 return item
 
-    # Current Home Assistant keeps the original blueprint declaration on the
-    # entity separately from the expanded raw_config. This is intentionally
-    # only a fallback because it is an internal attribute and may change.
-    blueprint_inputs = getattr(source, "_blueprint_inputs", None)
-    if isinstance(blueprint_inputs, dict) and isinstance(
-        blueprint_inputs.get("use_blueprint"), dict
-    ):
-        raw = copy.deepcopy(blueprint_inputs)
-        if source_id is not None:
-            raw.setdefault("id", str(source_id))
-        raw.setdefault("alias", getattr(source, "name", None) or entity_id)
-        return raw
+    # Conservative fallback for unusual/older registry states: match the
+    # current Home Assistant display name to an alias, but only when unique.
+    state = hass.states.get(entity_id)
+    if state is not None and state.name:
+        matches = [
+            item
+            for item in automations_data
+            if isinstance(item, dict)
+            and isinstance(item.get("alias"), str)
+            and item.get("alias") == state.name
+        ]
+        if len(matches) == 1:
+            return matches[0]
+
+    if registry_entry is None:
+        detail = "kein Entity-Registry-Eintrag gefunden"
+    elif source_id is None:
+        detail = "Entity-Registry-Eintrag hat keine unique_id"
+    else:
+        detail = f"Automation-ID {source_id!r} nicht in automations.yaml gefunden"
 
     raise HomeAssistantError(
-        f"{entity_id}: Die Originalkonfiguration konnte nicht gefunden werden. "
-        "Die Automation muss in automations.yaml gespeichert sein oder als "
-        "Blueprint-Automation geladen sein."
+        f"{entity_id}: Die Originalkonfiguration konnte nicht gefunden werden "
+        f"({detail}). Die Automation muss in automations.yaml gespeichert sein."
     )
 
 
@@ -259,14 +271,10 @@ async def async_migrate(
     """Migrate selected legacy AWTRIX automations."""
     from homeassistant.components import automation
     from homeassistant.components.automation.config import async_validate_config_item
-    from homeassistant.components.automation.const import DATA_COMPONENT
     from homeassistant.config import AUTOMATION_CONFIG_PATH
     from homeassistant.const import ATTR_ENTITY_ID, SERVICE_RELOAD, SERVICE_TURN_OFF
     from homeassistant.exceptions import HomeAssistantError
     from homeassistant.helpers import device_registry as dr
-
-    if DATA_COMPONENT not in hass.data:
-        raise HomeAssistantError("Die Automation-Integration ist noch nicht geladen.")
 
     device_registry = dr.async_get(hass)
     target_device = device_registry.async_get(target_awtrix_device)
@@ -279,7 +287,6 @@ async def async_migrate(
             "Das ausgewählte Zielgerät ist kein Blueforcer/AWTRIX-Gerät."
         )
 
-    component = hass.data[DATA_COMPONENT]
     automations_path = hass.config.path(AUTOMATION_CONFIG_PATH)
     current = await hass.async_add_executor_job(_read_automations_file, automations_path)
 
@@ -291,11 +298,16 @@ async def async_migrate(
         if not isinstance(entity_id, str) or not entity_id.startswith("automation."):
             raise HomeAssistantError(f"Ungültige Automation: {entity_id}")
 
-        source = component.get_entity(entity_id)
-        if source is None:
-            raise HomeAssistantError(f"Automation nicht gefunden: {entity_id}")
+        if hass.states.get(entity_id) is None:
+            # Disabled automations may be absent from the state machine, so
+            # the entity registry lookup inside _find_source_raw_config is the
+            # authoritative fallback.
+            from homeassistant.helpers import entity_registry as er
 
-        raw_config = _find_source_raw_config(source, entity_id, current)
+            if er.async_get(hass).async_get(entity_id) is None:
+                raise HomeAssistantError(f"Automation nicht gefunden: {entity_id}")
+
+        raw_config = _find_source_raw_config(hass, entity_id, current)
 
         use_blueprint = raw_config.get("use_blueprint")
         if not isinstance(use_blueprint, dict):

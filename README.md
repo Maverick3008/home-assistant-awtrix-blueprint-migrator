@@ -1,3 +1,5 @@
+# AWTRIX Blueprint Migrator v0.1.6
+
 # AWTRIX Blueprint Migrator
 
 Home Assistant Custom Integration zum Kopieren alter AWTRIX-Blueprint-Automationen
@@ -96,7 +98,7 @@ Die Aktion besitzt das Pflichtfeld **Neues AWTRIX-Zielgerät** (`target_awtrix_d
 - Ziel-AWTRIX-Geräteauswahl aus v0.1.1 bleibt erhalten.
 
 
-## Version 0.1.5
+## Version 0.1.6
 
 - echter sichtbarer Config-Flow mit Formular
 - Auswahl des Standard-AWTRIX-NG-Zielgeräts beim Einrichten
@@ -105,8 +107,15 @@ Die Aktion besitzt das Pflichtfeld **Neues AWTRIX-Zielgerät** (`target_awtrix_d
 - bestehende Quellautomationen werden weiterhin niemals gelöscht
 
 
-## v0.1.5
+## v0.1.6
 
 - Liest die ursprünglichen Blueprint-Inputs zuverlässig aus `automations.yaml` statt aus der bereits expandierten `raw_config`.
 - Fallback auf die von Home Assistant gehaltenen Blueprint-Inputs für Sonderfälle.
 - Konkrete Fehler werden als Home-Assistant-Benachrichtigung angezeigt und als `ServiceValidationError` an die UI zurückgegeben.
+
+
+## v0.1.6
+
+- Entfernt die Abhängigkeit von `homeassistant.components.automation.const.DATA_COMPONENT`.
+- Ordnet ausgewählte Automation-Entities über das Home-Assistant Entity Registry ihrer `id` in `automations.yaml` zu.
+- Dadurch kompatibler mit Home-Assistant-Versionen, in denen sich Automation-Interna geändert haben.
