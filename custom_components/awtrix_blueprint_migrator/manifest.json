@@ -1,0 +1,10 @@
+{
+  "domain": "awtrix_blueprint_migrator",
+  "name": "AWTRIX Blueprint Migrator",
+  "codeowners": [],
+  "config_flow": true,
+  "documentation": "https://github.com/Maverick3008/awtrix-blueprint-migrator",
+  "iot_class": "local_push",
+  "version": "0.1.1",
+  "requirements": []
+}

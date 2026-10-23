@@ -1,0 +1,432 @@
+blueprint:
+  name: AWTRIX NG Layout-App (TC002) Extended
+  description: >
+    Zeigt eine bis drei Entitäten als Pushed App auf einer AWTRIX NG TC002.
+    Unterstützt Layouts, Prefix/Suffix, Templates, zusätzliche Trigger,
+    Vor-Aktionen, freie AWTRIX-Optionen und zusätzliche Bedingungen.
+  domain: automation
+  homeassistant:
+    min_version: 2024.10.0
+
+  input:
+    basic:
+      name: Grundeinstellungen
+      icon: mdi:led-strip-variant
+      collapsed: false
+      input:
+        awtrix_device:
+          name: AWTRIX-Uhr(en)
+          selector:
+            device:
+              filter:
+                - integration: mqtt
+                  manufacturer: Blueforcer
+              multiple: true
+
+        app_name:
+          name: App-Name
+          default: awtrix_app
+          selector:
+            text:
+
+        layout:
+          name: Layout
+          default: icon_value
+          selector:
+            select:
+              options:
+                - label: "Großer Wert oben, zwei kleine unten (3 Entitäten)"
+                  value: big_top_two_bottom
+                - label: "Icon + großer Wert (1 Entität)"
+                  value: icon_value
+                - label: "Name oben, Wert unten (1 Entität)"
+                  value: title_value
+                - label: "Icon + zwei Zeilen (2 Entitäten)"
+                  value: icon_two_values
+
+        entities:
+          name: Entitäten
+          description: Reihenfolge = Reihenfolge der Werte im Layout
+          selector:
+            entity:
+              multiple: true
+              reorder: true
+
+        icon:
+          name: Icon
+          description: >
+            Icon-ID oder Icon-Name. Bei "Icon + großer Wert" wird der normale
+            AWTRIX-App-Modus verwendet: 8x8 wird auf 16x16 vergrößert,
+            16x16 bleibt 16x16.
+          default: ""
+          selector:
+            text:
+
+    text_options:
+      name: Text & Darstellung
+      icon: mdi:format-text
+      collapsed: true
+      input:
+        prefix_text:
+          name: Prefix Wert 1
+          default: ""
+          selector:
+            text:
+        suffix_text:
+          name: Suffix Wert 1
+          default: ""
+          selector:
+            text:
+        prefix_text_2:
+          name: Prefix Wert 2
+          default: ""
+          selector:
+            text:
+        suffix_text_2:
+          name: Suffix Wert 2
+          default: ""
+          selector:
+            text:
+        prefix_text_3:
+          name: Prefix Wert 3
+          default: ""
+          selector:
+            text:
+        suffix_text_3:
+          name: Suffix Wert 3
+          default: ""
+          selector:
+            text:
+        color:
+          name: Textfarbe
+          default: []
+          selector:
+            color_rgb:
+
+    templates:
+      name: Templates
+      icon: mdi:code-braces
+      collapsed: true
+      input:
+        value_template:
+          name: Template für Wert 1
+          default: ""
+          selector:
+            template:
+        value_template_2:
+          name: Template für Wert 2
+          default: ""
+          selector:
+            template:
+        value_template_3:
+          name: Template für Wert 3
+          default: ""
+          selector:
+            template:
+        icon_template:
+          name: Icon-Template
+          default: ""
+          selector:
+            template:
+        title_template:
+          name: Titel-Template
+          default: ""
+          selector:
+            template:
+
+    automation_options:
+      name: Trigger, Aktionen & Bedingungen
+      icon: mdi:source-branch
+      collapsed: true
+      input:
+        extra_triggers:
+          name: Zusätzliche Trigger
+          description: >
+            Zusätzliche Trigger für die Aktualisierung. Bei Bedingungen sollte
+            die zustandsgebende Entität hier ebenfalls als Trigger stehen.
+          default: []
+          selector:
+            trigger: {}
+        pre_actions:
+          name: Vor-Aktionen
+          default: []
+          selector:
+            action: {}
+        additional_conditions:
+          name: Zusätzliche Bedingungen
+          description: Die App wird nur angezeigt, wenn alle Bedingungen erfüllt sind.
+          default: []
+          selector:
+            condition: {}
+        remove_when_conditions_false:
+          name: App entfernen, wenn Bedingungen nicht erfüllt sind
+          default: true
+          selector:
+            boolean: {}
+
+    awtrix_options_section:
+      name: Erweiterte AWTRIX-Optionen
+      icon: mdi:tune-variant
+      collapsed: true
+      input:
+        user_options:
+          name: AWTRIX App-Optionen
+          description: >
+            Zusätzliche AWTRIX-NG Optionen. Altes "duration: 5" wird intern
+            zu "durationMs: 5000" konvertiert.
+          default: {}
+          selector:
+            object: {}
+
+mode: restart
+max_exceeded: silent
+
+variables:
+  device_ids: !input awtrix_device
+  app_name: !input app_name
+  layout: !input layout
+  ents: !input entities
+  icon_default: !input icon
+  color: !input color
+  prefix_1: !input prefix_text
+  suffix_1: !input suffix_text
+  prefix_2: !input prefix_text_2
+  suffix_2: !input suffix_text_2
+  prefix_3: !input prefix_text_3
+  suffix_3: !input suffix_text_3
+  remove_when_false: !input remove_when_conditions_false
+  user_options_input: !input user_options
+
+  availability_topics: >-
+    {% set ns = namespace(out=[]) %}
+    {% for dev in device_ids %}
+      {% set pe = device_entities(dev) | select('search', 'mqtt_prefix') | first | default('') %}
+      {% set p = states(pe) if pe else '' %}
+      {% if p not in ['', 'unknown', 'unavailable', 'none'] %}
+        {% set ns.out = ns.out + [p ~ '/availability'] %}
+      {% endif %}
+    {% endfor %}
+    {{ ns.out }}
+
+triggers:
+  - trigger: state
+    entity_id: !input entities
+    id: __awtrix_entity_update
+  - trigger: homeassistant
+    event: start
+    id: __awtrix_ha_start
+  - trigger: event
+    event_type: automation_reloaded
+    id: __awtrix_automation_reloaded
+  - trigger: mqtt
+    topic: "+/availability"
+    payload: "online"
+    id: __awtrix_online
+  - triggers: !input extra_triggers
+
+conditions:
+  - condition: template
+    value_template: >-
+      {{ trigger.id != '__awtrix_online' or trigger.topic in availability_topics }}
+
+actions:
+  - choose: []
+    default: !input pre_actions
+
+  - variables:
+      entity_id: >-
+        {{ ents[0] if ents | count > 0 else '' }}
+      entity_id_2: >-
+        {{ ents[1] if ents | count > 1 else '' }}
+      entity_id_3: >-
+        {{ ents[2] if ents | count > 2 else '' }}
+
+  - variables:
+      custom_value_1: !input value_template
+      custom_value_2: !input value_template_2
+      custom_value_3: !input value_template_3
+      custom_icon: !input icon_template
+      custom_title: !input title_template
+
+  - variables:
+      value_1: >-
+        {% if custom_value_1 | string | trim %}
+          {{ prefix_1 ~ (custom_value_1 | string) ~ suffix_1 }}
+        {% elif entity_id %}
+          {% if states(entity_id) in ['unknown', 'unavailable'] %}
+            {{ prefix_1 ~ '--' ~ suffix_1 }}
+          {% elif suffix_1 | string | trim %}
+            {{ prefix_1 ~ states(entity_id, rounded=True) ~ suffix_1 }}
+          {% else %}
+            {{ prefix_1 ~ states(entity_id, rounded=True, with_unit=True) }}
+          {% endif %}
+        {% else %}
+          --
+        {% endif %}
+
+      value_2: >-
+        {% if custom_value_2 | string | trim %}
+          {{ prefix_2 ~ (custom_value_2 | string) ~ suffix_2 }}
+        {% elif entity_id_2 %}
+          {% if states(entity_id_2) in ['unknown', 'unavailable'] %}
+            {{ prefix_2 ~ '--' ~ suffix_2 }}
+          {% elif suffix_2 | string | trim %}
+            {{ prefix_2 ~ states(entity_id_2, rounded=True) ~ suffix_2 }}
+          {% else %}
+            {{ prefix_2 ~ states(entity_id_2, rounded=True, with_unit=True) }}
+          {% endif %}
+        {% else %}
+          --
+        {% endif %}
+
+      value_3: >-
+        {% if custom_value_3 | string | trim %}
+          {{ prefix_3 ~ (custom_value_3 | string) ~ suffix_3 }}
+        {% elif entity_id_3 %}
+          {% if states(entity_id_3) in ['unknown', 'unavailable'] %}
+            {{ prefix_3 ~ '--' ~ suffix_3 }}
+          {% elif suffix_3 | string | trim %}
+            {{ prefix_3 ~ states(entity_id_3, rounded=True) ~ suffix_3 }}
+          {% else %}
+            {{ prefix_3 ~ states(entity_id_3, rounded=True, with_unit=True) }}
+          {% endif %}
+        {% else %}
+          --
+        {% endif %}
+
+      icon_final: >-
+        {{ custom_icon if custom_icon | string | trim else icon_default }}
+
+      title_1: >-
+        {% if custom_title | string | trim %}
+          {{ custom_title }}
+        {% elif entity_id %}
+          {{ state_attr(entity_id, 'friendly_name') or entity_id }}
+        {% else %}
+          --
+        {% endif %}
+
+      normalized_user_options: >-
+        {% set opts = dict(user_options_input.items() | rejectattr(0, 'equalto', 'duration') | list) %}
+        {% if user_options_input.get('duration') is not none and user_options_input.get('durationMs') is none %}
+          {% set opts = dict(opts, durationMs=((user_options_input.get('duration') | float) * 1000) | int) %}
+        {% endif %}
+        {{ opts }}
+
+  - variables:
+      layouts:
+        big_top_two_bottom:
+          - id: main
+            box: [0, 0, 52, 8]
+            slot: 0
+            font: matrix-chunky8x6
+          - id: left
+            box: [0, 9, 25, 7]
+            slot: 1
+            font: matrix-light6
+          - id: right
+            box: [27, 9, 25, 7]
+            slot: 2
+            font: matrix-light6
+
+        title_value:
+          - id: title
+            box: [0, 0, 52, 8]
+            show: title
+            font: matrix-light6
+          - id: value
+            box: [0, 8, 52, 8]
+            slot: 0
+            font: matrix-chunky8x6
+
+        icon_two_values:
+          - id: icon
+            box: [0, 0, 16, 16]
+            icon_region: true
+            align: center
+            valign: center
+          - id: top
+            box: [18, 0, 34, 8]
+            slot: 0
+            font: matrix-light6
+          - id: bottom
+            box: [18, 8, 34, 8]
+            slot: 1
+            font: matrix-light6
+
+  - variables:
+      regions: >-
+        {% set ns = namespace(out=[]) %}
+        {% set vals = [value_1, value_2, value_3] %}
+        {% if layout in layouts %}
+          {% for r in layouts[layout] %}
+            {% set base = r.items() | rejectattr(0, 'in', ['slot', 'show', 'icon_region']) | list %}
+            {% if r.icon_region is defined %}
+              {% if icon_final | string | trim %}
+                {% set ns.out = ns.out + [dict(base, icon=icon_final)] %}
+              {% endif %}
+            {% elif r.show | default('') == 'title' %}
+              {% set reg = dict(base, text=title_1) %}
+              {% if color %}{% set reg = dict(reg, color=color) %}{% endif %}
+              {% set ns.out = ns.out + [reg] %}
+            {% elif r.slot is defined and r.slot < vals | count %}
+              {% set reg = dict(base, text=vals[r.slot]) %}
+              {% if color %}{% set reg = dict(reg, color=color) %}{% endif %}
+              {% set ns.out = ns.out + [reg] %}
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+        {{ ns.out }}
+
+  - repeat:
+      for_each: "{{ device_ids }}"
+      sequence:
+        - variables:
+            prefix_entity: >-
+              {{ device_entities(repeat.item) | select('search', 'mqtt_prefix') | first | default('') }}
+            awtrix_prefix: >-
+              {{ states(prefix_entity) if prefix_entity else '' }}
+
+        - choose:
+            - conditions:
+                - condition: template
+                  value_template: >-
+                    {{ awtrix_prefix not in ['', 'unknown', 'unavailable', 'none'] }}
+                - condition: template
+                  value_template: >-
+                    {{ trigger.id != '__awtrix_online' or trigger.topic == awtrix_prefix ~ '/availability' }}
+              sequence:
+                - if: !input additional_conditions
+                  then:
+                    - choose:
+                        - conditions:
+                            - condition: template
+                              value_template: "{{ layout == 'icon_value' }}"
+                          sequence:
+                            - action: mqtt.publish
+                              data:
+                                topic: "{{ awtrix_prefix ~ '/cmd/apps/pushed/' ~ app_name }}"
+                                payload: >-
+                                  {% set p = dict(normalized_user_options, text=value_1) %}
+                                  {% if icon_final | string | trim %}
+                                    {% set p = dict(p, icon=icon_final) %}
+                                  {% endif %}
+                                  {% if color %}
+                                    {% set p = dict(p, textColor=color) %}
+                                  {% endif %}
+                                  {{ p | to_json }}
+                      default:
+                        - action: mqtt.publish
+                          data:
+                            topic: "{{ awtrix_prefix ~ '/cmd/apps/pushed/' ~ app_name }}"
+                            payload: >-
+                              {{ dict(normalized_user_options, layout={"version": 1, "regions": regions}) | to_json }}
+                  else:
+                    - if:
+                        - condition: template
+                          value_template: "{{ remove_when_false }}"
+                      then:
+                        - action: mqtt.publish
+                          data:
+                            topic: "{{ awtrix_prefix ~ '/cmd/apps/pushed/' ~ app_name }}"
+                            payload: ""

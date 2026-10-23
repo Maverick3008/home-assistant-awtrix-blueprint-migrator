@@ -1,0 +1,54 @@
+migrate:
+  name: AWTRIX-Automationen migrieren
+  description: >-
+    Kopiert ausgewählte alte AWTRIX-Blueprint-Automationen auf den neuen
+    AWTRIX-NG-Layout-Blueprint. Die Originale bleiben erhalten.
+  fields:
+    automations:
+      name: Alte Automationen
+      description: Die alten AWTRIX-Automationen, die kopiert werden sollen.
+      required: true
+      selector:
+        entity:
+          domain: automation
+          multiple: true
+    target_awtrix_device:
+      name: Neues AWTRIX-Zielgerät
+      description: >-
+        Das AWTRIX-NG-Gerät, für das die neuen Automationen angelegt werden.
+        Das in den alten Automationen hinterlegte AWTRIX-Gerät wird nicht übernommen.
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: mqtt
+              manufacturer: Blueforcer
+          multiple: false
+    name_prefix:
+      name: Präfix für neue Automationen
+      description: Wird dem Namen der kopierten Automation vorangestellt.
+      default: "[NG] "
+      selector:
+        text:
+    disable_originals:
+      name: Originale danach ausschalten
+      description: >-
+        Schaltet die alten Automationen nach erfolgreicher Migration aus.
+        Sie werden nicht gelöscht.
+      default: false
+      selector:
+        boolean:
+    skip_existing:
+      name: Bereits migrierte überspringen
+      description: Verhindert doppelte Kopien derselben Quellautomation.
+      default: true
+      selector:
+        boolean:
+    dry_run:
+      name: Nur prüfen
+      description: >-
+        Validiert die Migration und zeigt das Ergebnis als Benachrichtigung,
+        schreibt aber nichts in automations.yaml.
+      default: false
+      selector:
+        boolean:

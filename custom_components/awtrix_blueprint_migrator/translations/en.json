@@ -1,0 +1,14 @@
+{
+  "title": "AWTRIX Blueprint Migrator",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up AWTRIX Blueprint Migrator",
+        "description": "Installs the AWTRIX NG target blueprint and exposes an action for copying legacy AWTRIX automations."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "The integration is already configured."
+    }
+  }
+}
