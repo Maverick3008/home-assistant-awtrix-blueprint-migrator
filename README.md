@@ -88,3 +88,10 @@ verwendest, musst du `automations.yaml` zusätzlich einbinden.
 ### Neue Option ab v0.1.2
 
 Die Aktion besitzt das Pflichtfeld **Neues AWTRIX-Zielgerät** (`target_awtrix_device`). Alle ausgewählten alten Automationen werden auf dieses Gerät kopiert. Die Quellautomationen bleiben unverändert.
+
+## Version 0.1.3
+
+- Config-Flow robuster gemacht: keine Automation-/Blueprint-Interna mehr beim Paketimport.
+- Migration-spezifische Home-Assistant-Imports werden erst beim tatsächlichen Migrieren geladen.
+- Ziel-AWTRIX-Geräteauswahl aus v0.1.1 bleibt erhalten.
+

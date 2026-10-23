@@ -7,21 +7,13 @@ from datetime import datetime
 import logging
 import os
 import shutil
-from typing import Any
+from typing import Any, TYPE_CHECKING
 import uuid
 
-from homeassistant.components import automation, persistent_notification
-from homeassistant.components.automation.config import async_validate_config_item
-from homeassistant.components.automation.const import DATA_COMPONENT
-from homeassistant.config import AUTOMATION_CONFIG_PATH
-from homeassistant.const import ATTR_ENTITY_ID, SERVICE_RELOAD, SERVICE_TURN_OFF
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry as dr
-from homeassistant.exceptions import HomeAssistantError
-from homeassistant.util.file import write_utf8_file_atomic
-from homeassistant.util.yaml import dump, load_yaml
-
 from .const import MIGRATION_MARKER_PREFIX, TARGET_BLUEPRINT_PATH
+
+if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -46,6 +38,9 @@ def _as_text(value: Any) -> str:
 
 def _read_automations_file(path: str) -> list[dict[str, Any]]:
     """Read automations.yaml."""
+    from homeassistant.exceptions import HomeAssistantError
+    from homeassistant.util.yaml import load_yaml
+
     if not os.path.isfile(path):
         return []
 
@@ -61,6 +56,9 @@ def _read_automations_file(path: str) -> list[dict[str, Any]]:
 
 def _write_automations_file(path: str, data: list[dict[str, Any]]) -> None:
     """Atomically write automations.yaml using Home Assistant YAML helpers."""
+    from homeassistant.util.file import write_utf8_file_atomic
+    from homeassistant.util.yaml import dump
+
     contents = dump(data)
     write_utf8_file_atomic(path, contents)
 
@@ -112,10 +110,11 @@ def _map_legacy_inputs(
     old_inputs: dict[str, Any],
     target_awtrix_device: str,
 ) -> tuple[dict[str, Any], list[str]]:
-    """Map the legacy AWTRIX blueprint inputs to the NG blueprint."""
+    """Map legacy AWTRIX blueprint inputs to the NG blueprint."""
+    from homeassistant.exceptions import HomeAssistantError
+
     warnings: list[str] = []
 
-    # A legacy automation normally has exactly one entity.
     if "entity" in old_inputs:
         entities = _as_list(copy.deepcopy(old_inputs.get("entity")))
     else:
@@ -128,9 +127,7 @@ def _map_legacy_inputs(
         "app_name": copy.deepcopy(old_inputs.get("app_name", "awtrix_app")),
         "layout": "icon_value",
         "entities": entities,
-        "icon": copy.deepcopy(
-            old_inputs.get("app_icon", old_inputs.get("icon", ""))
-        ),
+        "icon": copy.deepcopy(old_inputs.get("app_icon", old_inputs.get("icon", ""))),
         "prefix_text": _as_text(old_inputs.get("prefix_text", "")),
         "suffix_text": _as_text(old_inputs.get("suffix_text", "")),
         "extra_triggers": copy.deepcopy(old_inputs.get("extra_triggers", [])) or [],
@@ -141,12 +138,11 @@ def _map_legacy_inputs(
         or [],
         "remove_when_conditions_false": True,
         "user_options": copy.deepcopy(old_inputs.get("user_options", {})) or {},
-        # Always use the explicitly selected AWTRIX NG target device.
-        # The legacy source device is intentionally not copied.
+        # Always replace the legacy AWTRIX device with the explicitly selected
+        # AWTRIX NG target device.
         "awtrix_device": [target_awtrix_device],
     }
 
-    # The old blueprint hid templates in additional_options.
     additional_options = old_inputs.get("additional_options", {}) or {}
     if isinstance(additional_options, dict):
         if "value_template" in additional_options:
@@ -216,11 +212,17 @@ async def async_migrate(
     dry_run: bool,
 ) -> dict[str, Any]:
     """Migrate selected legacy AWTRIX automations."""
+    from homeassistant.components import automation
+    from homeassistant.components.automation.config import async_validate_config_item
+    from homeassistant.components.automation.const import DATA_COMPONENT
+    from homeassistant.config import AUTOMATION_CONFIG_PATH
+    from homeassistant.const import ATTR_ENTITY_ID, SERVICE_RELOAD, SERVICE_TURN_OFF
+    from homeassistant.exceptions import HomeAssistantError
+    from homeassistant.helpers import device_registry as dr
+
     if DATA_COMPONENT not in hass.data:
         raise HomeAssistantError("Die Automation-Integration ist noch nicht geladen.")
 
-    # Validate the explicitly selected target device. The service UI filters
-    # to MQTT/Blueforcer devices, but this check also protects direct service calls.
     device_registry = dr.async_get(hass)
     target_device = device_registry.async_get(target_awtrix_device)
     if target_device is None:
@@ -271,8 +273,6 @@ async def async_migrate(
                 f"{entity_id}: Die Blueprint-Eingaben konnten nicht gelesen werden."
             )
 
-        # Require the characteristic legacy AWTRIX inputs. This prevents
-        # accidentally migrating an unrelated blueprint automation.
         if "app_name" not in old_inputs or (
             "entity" not in old_inputs and "entities" not in old_inputs
         ):
@@ -288,10 +288,9 @@ async def async_migrate(
             skipped.append(f"{entity_id} (bereits migriert)")
             continue
 
-        # Validate exactly as Home Assistant's automation config editor does.
         try:
             await async_validate_config_item(hass, new_config["id"], new_config)
-        except Exception as err:  # Home Assistant may wrap schema exceptions.
+        except Exception as err:  # HA may wrap schema/blueprint errors.
             raise HomeAssistantError(
                 f"{entity_id}: Zielautomation ist ungültig: {err}"
             ) from err
@@ -329,7 +328,6 @@ async def async_migrate(
     updated.extend(config for _, config in planned)
     await hass.async_add_executor_job(_write_automations_file, automations_path, updated)
 
-    # Reload after the atomic write so the new entities become available.
     await hass.services.async_call(automation.DOMAIN, SERVICE_RELOAD, blocking=True)
 
     if disable_originals:
@@ -358,7 +356,7 @@ async def async_migrate(
     }
 
 
-def notify_result(hass: HomeAssistant, result: dict[str, Any]) -> None:
+async def async_notify_result(hass: HomeAssistant, result: dict[str, Any]) -> None:
     """Show a concise persistent notification after migration."""
     created = result.get("created", [])
     skipped = result.get("skipped", [])
@@ -383,9 +381,13 @@ def notify_result(hass: HomeAssistant, result: dict[str, Any]) -> None:
     if backup:
         lines.append(f"\nBackup: {backup}")
 
-    persistent_notification.async_create(
-        hass,
-        "\n".join(lines),
-        title="AWTRIX Blueprint Migrator",
-        notification_id="awtrix_blueprint_migrator_last_result",
+    await hass.services.async_call(
+        "persistent_notification",
+        "create",
+        {
+            "title": "AWTRIX Blueprint Migrator",
+            "message": "\n".join(lines),
+            "notification_id": "awtrix_blueprint_migrator_last_result",
+        },
+        blocking=False,
     )

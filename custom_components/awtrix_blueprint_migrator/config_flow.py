@@ -9,7 +9,7 @@ from homeassistant import config_entries
 from .const import DOMAIN
 
 
-class AwtrixBlueprintMigratorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle the config flow for AWTRIX Blueprint Migrator."""
 
     VERSION = 1

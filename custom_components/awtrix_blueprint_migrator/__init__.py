@@ -5,41 +5,27 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 import shutil
-
-import voluptuous as vol
-
-from homeassistant.components.automation.helpers import async_get_blueprints
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.helpers import config_validation as cv
+from typing import TYPE_CHECKING, Any
 
 from .const import (
     CONF_AUTOMATIONS,
-    CONF_TARGET_AWTRIX_DEVICE,
     CONF_DISABLE_ORIGINALS,
     CONF_DRY_RUN,
     CONF_NAME_PREFIX,
     CONF_SKIP_EXISTING,
+    CONF_TARGET_AWTRIX_DEVICE,
     DEFAULT_NAME_PREFIX,
     DOMAIN,
     SERVICE_MIGRATE,
     TARGET_BLUEPRINT_FILENAME,
 )
-from .migration import async_migrate, notify_result
+
+if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigEntry
+    from homeassistant.core import HomeAssistant
 
 _DATA_LOCK = "migration_lock"
 _DATA_REGISTERED = "service_registered"
-
-MIGRATE_SCHEMA = vol.Schema(
-    {
-        vol.Required(CONF_AUTOMATIONS): cv.entity_ids,
-        vol.Required(CONF_TARGET_AWTRIX_DEVICE): cv.string,
-        vol.Optional(CONF_NAME_PREFIX, default=DEFAULT_NAME_PREFIX): cv.string,
-        vol.Optional(CONF_DISABLE_ORIGINALS, default=False): cv.boolean,
-        vol.Optional(CONF_SKIP_EXISTING, default=True): cv.boolean,
-        vol.Optional(CONF_DRY_RUN, default=False): cv.boolean,
-    }
-)
 
 
 def _install_bundled_blueprint(config_dir: str) -> None:
@@ -67,10 +53,49 @@ def _install_bundled_blueprint(config_dir: str) -> None:
     tmp.replace(target)
 
 
+def _build_migrate_schema() -> Any:
+    """Build the service schema lazily.
+
+    Keeping Home Assistant and voluptuous imports out of module import time is
+    intentional. Home Assistant imports the package __init__.py before
+    config_flow.py; a volatile internal import here would otherwise make the
+    UI report only 'Invalid handler specified'.
+    """
+    import voluptuous as vol
+
+    from homeassistant.helpers import config_validation as cv
+
+    return vol.Schema(
+        {
+            vol.Required(CONF_AUTOMATIONS): cv.entity_ids,
+            vol.Required(CONF_TARGET_AWTRIX_DEVICE): cv.string,
+            vol.Optional(CONF_NAME_PREFIX, default=DEFAULT_NAME_PREFIX): cv.string,
+            vol.Optional(CONF_DISABLE_ORIGINALS, default=False): cv.boolean,
+            vol.Optional(CONF_SKIP_EXISTING, default=True): cv.boolean,
+            vol.Optional(CONF_DRY_RUN, default=False): cv.boolean,
+        }
+    )
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up AWTRIX Blueprint Migrator."""
+    # Import HA automation internals only after the config flow has created the
+    # entry. This keeps config_flow.py independent from migration internals.
+    from homeassistant.components import automation
+    from homeassistant.core import ServiceCall
+
+    from .migration import async_migrate, async_notify_result
+
     await hass.async_add_executor_job(_install_bundled_blueprint, hass.config.config_dir)
-    await async_get_blueprints(hass).async_populate()
+
+    # Refresh Home Assistant's automation-blueprint cache if the API is
+    # available. The blueprint file itself is already installed even if this
+    # optional refresh fails on another HA release.
+    try:
+        blueprints = automation.async_get_blueprints(hass)
+        await blueprints.async_populate()
+    except (AttributeError, ImportError):
+        pass
 
     data = hass.data.setdefault(DOMAIN, {})
     data.setdefault(_DATA_LOCK, asyncio.Lock())
@@ -88,13 +113,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     skip_existing=call.data[CONF_SKIP_EXISTING],
                     dry_run=call.data[CONF_DRY_RUN],
                 )
-                notify_result(hass, result)
+                await async_notify_result(hass, result)
 
         hass.services.async_register(
             DOMAIN,
             SERVICE_MIGRATE,
             handle_migrate,
-            schema=MIGRATE_SCHEMA,
+            schema=_build_migrate_schema(),
         )
         data[_DATA_REGISTERED] = True
 
@@ -103,7 +128,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload the integration."""
-    # Single-instance integration: remove the service when unloaded.
     if hass.services.has_service(DOMAIN, SERVICE_MIGRATE):
         hass.services.async_remove(DOMAIN, SERVICE_MIGRATE)
     hass.data.pop(DOMAIN, None)
