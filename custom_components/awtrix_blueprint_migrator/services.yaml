@@ -13,11 +13,11 @@ migrate:
           domain: automation
           multiple: true
     target_awtrix_device:
-      name: Neues AWTRIX-Zielgerät
+      name: AWTRIX-Zielgerät überschreiben
       description: >-
-        Das AWTRIX-NG-Gerät, für das die neuen Automationen angelegt werden.
-        Das in den alten Automationen hinterlegte AWTRIX-Gerät wird nicht übernommen.
-      required: true
+        Optional. Leer lassen, um das bei der Einrichtung ausgewählte
+        Standard-AWTRIX-NG-Gerät zu verwenden.
+      required: false
       selector:
         device:
           filter:
@@ -25,9 +25,11 @@ migrate:
               manufacturer: Blueforcer
           multiple: false
     name_prefix:
-      name: Präfix für neue Automationen
-      description: Wird dem Namen der kopierten Automation vorangestellt.
-      default: "[NG] "
+      name: Präfix überschreiben
+      description: >-
+        Optional. Leer lassen, um den bei der Einrichtung festgelegten
+        Standard-Präfix zu verwenden.
+      required: false
       selector:
         text:
     disable_originals:

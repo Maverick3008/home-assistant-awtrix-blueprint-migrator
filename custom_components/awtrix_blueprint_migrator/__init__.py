@@ -53,7 +53,7 @@ def _install_bundled_blueprint(config_dir: str) -> None:
     tmp.replace(target)
 
 
-def _build_migrate_schema() -> Any:
+def _build_migrate_schema(has_default_target: bool) -> Any:
     """Build the service schema lazily.
 
     Keeping Home Assistant and voluptuous imports out of module import time is
@@ -65,11 +65,17 @@ def _build_migrate_schema() -> Any:
 
     from homeassistant.helpers import config_validation as cv
 
+    target_field = (
+        vol.Optional(CONF_TARGET_AWTRIX_DEVICE)
+        if has_default_target
+        else vol.Required(CONF_TARGET_AWTRIX_DEVICE)
+    )
+
     return vol.Schema(
         {
             vol.Required(CONF_AUTOMATIONS): cv.entity_ids,
-            vol.Required(CONF_TARGET_AWTRIX_DEVICE): cv.string,
-            vol.Optional(CONF_NAME_PREFIX, default=DEFAULT_NAME_PREFIX): cv.string,
+            target_field: cv.string,
+            vol.Optional(CONF_NAME_PREFIX): cv.string,
             vol.Optional(CONF_DISABLE_ORIGINALS, default=False): cv.boolean,
             vol.Optional(CONF_SKIP_EXISTING, default=True): cv.boolean,
             vol.Optional(CONF_DRY_RUN, default=False): cv.boolean,
@@ -104,11 +110,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         async def handle_migrate(call: ServiceCall) -> None:
             async with data[_DATA_LOCK]:
+                target_awtrix_device = call.data.get(
+                    CONF_TARGET_AWTRIX_DEVICE,
+                    entry.data.get(CONF_TARGET_AWTRIX_DEVICE),
+                )
+                if not target_awtrix_device:
+                    raise ValueError(
+                        "Kein AWTRIX-Zielgerät konfiguriert. "
+                        "Bitte Integration neu einrichten oder Zielgerät in der Aktion angeben."
+                    )
+
                 result = await async_migrate(
                     hass,
                     list(call.data[CONF_AUTOMATIONS]),
-                    target_awtrix_device=call.data[CONF_TARGET_AWTRIX_DEVICE],
-                    name_prefix=call.data[CONF_NAME_PREFIX],
+                    target_awtrix_device=target_awtrix_device,
+                    name_prefix=call.data.get(
+                        CONF_NAME_PREFIX,
+                        entry.data.get(CONF_NAME_PREFIX, DEFAULT_NAME_PREFIX),
+                    ),
                     disable_originals=call.data[CONF_DISABLE_ORIGINALS],
                     skip_existing=call.data[CONF_SKIP_EXISTING],
                     dry_run=call.data[CONF_DRY_RUN],
@@ -119,7 +138,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             DOMAIN,
             SERVICE_MIGRATE,
             handle_migrate,
-            schema=_build_migrate_schema(),
+            schema=_build_migrate_schema(CONF_TARGET_AWTRIX_DEVICE in entry.data),
         )
         data[_DATA_REGISTERED] = True
 

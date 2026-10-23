@@ -4,7 +4,15 @@
     "step": {
       "user": {
         "title": "Set up AWTRIX Blueprint Migrator",
-        "description": "Installs the AWTRIX NG target blueprint and exposes an action for copying legacy AWTRIX automations."
+        "description": "Select the new AWTRIX NG device that should be used by migrated automations by default.",
+        "data": {
+          "target_awtrix_device": "Default AWTRIX NG target device",
+          "name_prefix": "Prefix for new automations"
+        },
+        "data_description": {
+          "target_awtrix_device": "This device replaces the legacy AWTRIX device in migrated automations. It can still be overridden when running the migration action.",
+          "name_prefix": "Default: [NG] . Example: 'Outdoor temperature' becomes '[NG] Outdoor temperature'."
+        }
       }
     },
     "abort": {

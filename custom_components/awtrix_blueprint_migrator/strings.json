@@ -4,7 +4,15 @@
     "step": {
       "user": {
         "title": "AWTRIX Blueprint Migrator einrichten",
-        "description": "Installiert den AWTRIX-NG-Ziel-Blueprint und stellt die Aktion zum Kopieren alter AWTRIX-Automationen bereit."
+        "description": "Wähle das neue AWTRIX-NG-Gerät aus, für das die kopierten Automationen standardmäßig erstellt werden sollen.",
+        "data": {
+          "target_awtrix_device": "Standard AWTRIX-NG-Zielgerät",
+          "name_prefix": "Präfix für neue Automationen"
+        },
+        "data_description": {
+          "target_awtrix_device": "Dieses Gerät ersetzt das alte AWTRIX-Gerät in allen migrierten Automationen. In der Migrations-Aktion kann es bei Bedarf überschrieben werden.",
+          "name_prefix": "Standard: [NG] . Beispiel: Aus 'Außentemperatur' wird '[NG] Außentemperatur'."
+        }
       }
     },
     "abort": {

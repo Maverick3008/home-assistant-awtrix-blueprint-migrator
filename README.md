@@ -95,3 +95,11 @@ Die Aktion besitzt das Pflichtfeld **Neues AWTRIX-Zielgerät** (`target_awtrix_d
 - Migration-spezifische Home-Assistant-Imports werden erst beim tatsächlichen Migrieren geladen.
 - Ziel-AWTRIX-Geräteauswahl aus v0.1.1 bleibt erhalten.
 
+
+## Version 0.1.4
+
+- echter sichtbarer Config-Flow mit Formular
+- Auswahl des Standard-AWTRIX-NG-Zielgeräts beim Einrichten
+- Standard-Präfix für neu erzeugte Automationen im Config-Flow
+- Zielgerät und Präfix können in der Migrations-Aktion optional überschrieben werden
+- bestehende Quellautomationen werden weiterhin niemals gelöscht
