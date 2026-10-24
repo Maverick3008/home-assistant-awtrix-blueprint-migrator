@@ -1,4 +1,3 @@
-# AWTRIX Blueprint Migrator v0.1.8
 
 Home Assistant Custom Integration zum Kopieren alter AWTRIX-Blueprint-Automationen (10der/awtrix-simple)
 auf den neuen **AWTRIX NG Layout-App (TC002) Extended** Blueprint.
