@@ -215,7 +215,7 @@ def _map_legacy_inputs(
         "app_name": normalized_app_name,
         "layout": "icon_value",
         "entities": entities,
-        "icon": copy.deepcopy(old_inputs.get("app_icon", old_inputs.get("icon", ""))),
+        "icon": _as_text(copy.deepcopy(old_inputs.get("app_icon", old_inputs.get("icon", "")))),
         "prefix_text": _as_text(old_inputs.get("prefix_text", "")),
         "suffix_text": _as_text(old_inputs.get("suffix_text", "")),
         "extra_triggers": copy.deepcopy(old_inputs.get("extra_triggers", [])) or [],

@@ -1,4 +1,4 @@
-# AWTRIX Blueprint Migrator v0.1.7
+# AWTRIX Blueprint Migrator v0.1.8
 
 # AWTRIX Blueprint Migrator
 
@@ -129,3 +129,16 @@ Die Aktion besitzt das Pflichtfeld **Neues AWTRIX-Zielgerät** (`target_awtrix_d
 - Die erzeugte Automation enthält den bereinigten Namen direkt im `use_blueprint.input.app_name`.
 - Bereits vorhandene Ziel-Blueprint-Dateien werden beim Start der Integration **nicht mehr überschrieben**. Eigene Blueprint-Anpassungen bleiben dadurch erhalten.
 - Der mitgelieferte Blueprint enthält zusätzlich die aktuelle App-Namen-Absicherung, 5-Minuten-Refresh und die String-Ausgabe für numerische Icon-IDs.
+
+
+## v0.1.8
+
+- Mitgelieferter Blueprint auf den aktuellen Stand gebracht.
+- Neues Layout **16×16 Icon + breiter Wert**.
+- Das breite Layout verwendet standardmäßig `matrix-chunky8x6`.
+- Automatische `_16`-Icon-Nutzung für mit dem AWTRIX NG Icon Scaler erzeugte 16×16-Dateien.
+- Automatische `_16`-Nutzung kann pro Automation deaktiviert werden.
+- Font-Auswahl für Wert 1, Wert 2, Wert 3 und Titel.
+- Numerische Legacy-Icon-IDs werden bei der Migration ausdrücklich als String übernommen.
+- App-Namen werden weiterhin bereits bei der Migration normalisiert.
+- Vorhandene Ziel-Blueprint-Dateien werden weiterhin nicht ungefragt überschrieben. Bei einer Neuinstallation wird der aktuelle v0.1.8-Blueprint automatisch installiert.

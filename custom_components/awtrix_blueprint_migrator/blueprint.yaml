@@ -3,7 +3,9 @@ blueprint:
   description: >
     Zeigt eine bis drei Entitäten als Pushed App auf einer AWTRIX NG TC002.
     Unterstützt Layouts, Prefix/Suffix, Templates, zusätzliche Trigger,
-    Vor-Aktionen, freie AWTRIX-Optionen und zusätzliche Bedingungen.
+    Vor-Aktionen, freie AWTRIX-Optionen, zusätzliche Bedingungen,
+    Font-Auswahl sowie 16×16-Icons mit breitem Textbereich und automatischer
+    _16-Icon-Nutzung.
   domain: automation
   homeassistant:
     min_version: 2024.10.0
@@ -35,13 +37,15 @@ blueprint:
           selector:
             select:
               options:
-                - label: "Großer Wert oben, zwei kleine unten (3 Entitäten)"
-                  value: big_top_two_bottom
-                - label: "Icon + großer Wert (1 Entität)"
+                - label: "Icon + großer Wert (klassisch)"
                   value: icon_value
-                - label: "Name oben, Wert unten (1 Entität)"
+                - label: "16×16 Icon + breiter Wert"
+                  value: icon_value_wide
+                - label: "Großer Wert oben, zwei kleine unten"
+                  value: big_top_two_bottom
+                - label: "Name oben, Wert unten"
                   value: title_value
-                - label: "Icon + zwei Zeilen (2 Entitäten)"
+                - label: "Icon + zwei Zeilen"
                   value: icon_two_values
 
         entities:
@@ -55,12 +59,22 @@ blueprint:
         icon:
           name: Icon
           description: >
-            Icon-ID oder Icon-Name. Bei "Icon + großer Wert" wird der normale
-            AWTRIX-App-Modus verwendet: 8x8 wird auf 16x16 vergrößert,
-            16x16 bleibt 16x16.
+            AWTRIX Icon-ID oder Icon-Name. Beispiele: 52429, akku oder
+            solar-panel-16x16-animated. Numerische IDs werden als String
+            übertragen.
           default: ""
           selector:
             text:
+
+        wide_icon_use_16_suffix:
+          name: Beim breiten Layout automatisch _16 verwenden
+          description: >
+            Nur für "16×16 Icon + breiter Wert". Aktiv: 52429 -> 52429_16.
+            Deaktivieren, wenn das angegebene Icon bereits ein echtes
+            16×16-Icon ist und keinen _16-Suffix besitzt.
+          default: true
+          selector:
+            boolean:
 
     text_options:
       name: Text & Darstellung
@@ -102,6 +116,106 @@ blueprint:
           default: []
           selector:
             color_rgb:
+
+    font_options:
+      name: Schriftart / Schriftgröße
+      icon: mdi:format-font
+      collapsed: true
+      input:
+        font_1:
+          name: Schrift Wert 1
+          description: >
+            Bei "16×16 Icon + breiter Wert" wird bei Automatisch
+            matrix-chunky8x6 verwendet.
+          default: auto
+          selector:
+            select:
+              options:
+                - label: "Automatisch"
+                  value: auto
+                - label: "Small"
+                  value: small
+                - label: "Large"
+                  value: large
+                - label: "Matrix Light 6"
+                  value: matrix-light6
+                - label: "Matrix Light 6x"
+                  value: matrix-light6x
+                - label: "Matrix Chunky 6x"
+                  value: matrix-chunky6x
+                - label: "Matrix Light 8x"
+                  value: matrix-light8x
+                - label: "Matrix Chunky 8x6"
+                  value: matrix-chunky8x6
+
+        font_2:
+          name: Schrift Wert 2
+          default: auto
+          selector:
+            select:
+              options:
+                - label: "Automatisch"
+                  value: auto
+                - label: "Small"
+                  value: small
+                - label: "Large"
+                  value: large
+                - label: "Matrix Light 6"
+                  value: matrix-light6
+                - label: "Matrix Light 6x"
+                  value: matrix-light6x
+                - label: "Matrix Chunky 6x"
+                  value: matrix-chunky6x
+                - label: "Matrix Light 8x"
+                  value: matrix-light8x
+                - label: "Matrix Chunky 8x6"
+                  value: matrix-chunky8x6
+
+        font_3:
+          name: Schrift Wert 3
+          default: auto
+          selector:
+            select:
+              options:
+                - label: "Automatisch"
+                  value: auto
+                - label: "Small"
+                  value: small
+                - label: "Large"
+                  value: large
+                - label: "Matrix Light 6"
+                  value: matrix-light6
+                - label: "Matrix Light 6x"
+                  value: matrix-light6x
+                - label: "Matrix Chunky 6x"
+                  value: matrix-chunky6x
+                - label: "Matrix Light 8x"
+                  value: matrix-light8x
+                - label: "Matrix Chunky 8x6"
+                  value: matrix-chunky8x6
+
+        title_font:
+          name: Schrift Titel
+          default: auto
+          selector:
+            select:
+              options:
+                - label: "Automatisch"
+                  value: auto
+                - label: "Small"
+                  value: small
+                - label: "Large"
+                  value: large
+                - label: "Matrix Light 6"
+                  value: matrix-light6
+                - label: "Matrix Light 6x"
+                  value: matrix-light6x
+                - label: "Matrix Chunky 6x"
+                  value: matrix-chunky6x
+                - label: "Matrix Light 8x"
+                  value: matrix-light8x
+                - label: "Matrix Chunky 8x6"
+                  value: matrix-chunky8x6
 
     templates:
       name: Templates
@@ -193,6 +307,7 @@ variables:
   layout: !input layout
   ents: !input entities
   icon_input: !input icon
+  wide_icon_suffix_enabled: !input wide_icon_use_16_suffix
   color: !input color
   prefix_1: !input prefix_text
   suffix_1: !input suffix_text
@@ -200,6 +315,10 @@ variables:
   suffix_2: !input suffix_text_2
   prefix_3: !input prefix_text_3
   suffix_3: !input suffix_text_3
+  font_1_input: !input font_1
+  font_2_input: !input font_2
+  font_3_input: !input font_3
+  title_font_input: !input title_font
   periodic_refresh_enabled: !input periodic_refresh
   remove_when_false: !input remove_when_conditions_false
   user_options_input: !input user_options
@@ -347,6 +466,19 @@ actions:
 
   - variables:
       layouts:
+        icon_value_wide:
+          - id: icon
+            box: [0, 0, 16, 16]
+            icon_region: true
+            align: center
+            valign: center
+          - id: value
+            box: [18, 0, 34, 16]
+            slot: 0
+            font: matrix-chunky8x6
+            align: center
+            valign: center
+
         big_top_two_bottom:
           - id: main
             box: [0, 0, 52, 8]
@@ -386,29 +518,6 @@ actions:
             slot: 1
             font: matrix-light6
 
-  - variables:
-      regions: >-
-        {% set ns = namespace(out=[]) %}
-        {% set vals = [value_1, value_2, value_3] %}
-        {% if layout in layouts %}
-          {% for r in layouts[layout] %}
-            {% set base = r.items() | rejectattr(0, 'in', ['slot', 'show', 'icon_region']) | list %}
-            {% if r.icon_region is defined %}
-              {% if icon_final | string | trim %}
-                {% set ns.out = ns.out + [dict(base, icon=icon_final)] %}
-              {% endif %}
-            {% elif r.show | default('') == 'title' %}
-              {% set reg = dict(base, text=title_1) %}
-              {% if color %}{% set reg = dict(reg, color=color) %}{% endif %}
-              {% set ns.out = ns.out + [reg] %}
-            {% elif r.slot is defined and r.slot < vals | count %}
-              {% set reg = dict(base, text=vals[r.slot]) %}
-              {% if color %}{% set reg = dict(reg, color=color) %}{% endif %}
-              {% set ns.out = ns.out + [reg] %}
-            {% endif %}
-          {% endfor %}
-        {% endif %}
-        {{ ns.out }}
 
   - repeat:
       for_each: "{{ device_ids }}"
@@ -454,6 +563,7 @@ actions:
                                   {% endfor %}
                                   "text":"{{ safe_text }}"
                                   {% if safe_icon %},"icon":"{{ safe_icon }}"{% endif %}
+                                  {% if font_1_input != 'auto' %},"font":{{ font_1_input | to_json }}{% endif %}
                                   {% if color %},"textColor":{{ color | to_json }}{% endif %}
                                   }
                       default:
@@ -461,7 +571,85 @@ actions:
                           data:
                             topic: "{{ awtrix_prefix ~ '/cmd/apps/pushed/' ~ safe_app_name }}"
                             payload: >-
-                              {{ dict(normalized_user_options, layout={"version": 1, "regions": regions}) | to_json }}
+                              {% set selected_icon = custom_icon if custom_icon | string | trim else icon_input %}
+                              {% set safe_icon = selected_icon | string | trim | replace('\\', '\\\\') | replace('"', '\\"') %}
+
+                              {% set layout_icon = safe_icon %}
+                              {% if layout == 'icon_value_wide' and wide_icon_suffix_enabled and safe_icon %}
+                                {% if '://' in safe_icon %}
+                                  {% set layout_icon = safe_icon %}
+                                {% else %}
+                                  {% set icon_base = safe_icon | regex_replace('\.(gif|jpg|jpeg)$', '') %}
+                                  {% if icon_base[-3:] == '_16' %}
+                                    {% set layout_icon = icon_base %}
+                                  {% else %}
+                                    {% set layout_icon = icon_base ~ '_16' %}
+                                  {% endif %}
+                                {% endif %}
+                              {% endif %}
+
+                              {% set vals = [value_1, value_2, value_3] %}
+                              {% set selected_fonts = [font_1_input, font_2_input, font_3_input] %}
+
+                              {
+                              {% for key, val in normalized_user_options.items() %}
+                              {{ key | to_json }}:{{ val | to_json }},
+                              {% endfor %}
+                              "layout": {
+                                "version": 1,
+                                "regions": [
+                                  {% set ns = namespace(first=true) %}
+                                  {% if layout in layouts %}
+                                    {% for r in layouts[layout] %}
+
+                                      {% if r.icon_region is defined %}
+                                        {% if layout_icon %}
+                                          {% if not ns.first %},{% endif %}
+                                          {
+                                            "id":{{ r.id | to_json }},
+                                            "box":{{ r.box | to_json }},
+                                            "icon":"{{ layout_icon }}"
+                                            {% if r.align is defined %},"align":{{ r.align | to_json }}{% endif %}
+                                            {% if r.valign is defined %},"valign":{{ r.valign | to_json }}{% endif %}
+                                          }
+                                          {% set ns.first = false %}
+                                        {% endif %}
+
+                                      {% elif r.show | default('') == 'title' %}
+                                        {% set effective_title_font = title_font_input if title_font_input != 'auto' else r.font | default('') %}
+                                        {% if not ns.first %},{% endif %}
+                                        {
+                                          "id":{{ r.id | to_json }},
+                                          "box":{{ r.box | to_json }},
+                                          "text":{{ title_1 | string | to_json }}
+                                          {% if effective_title_font %},"font":{{ effective_title_font | to_json }}{% endif %}
+                                          {% if r.align is defined %},"align":{{ r.align | to_json }}{% endif %}
+                                          {% if r.valign is defined %},"valign":{{ r.valign | to_json }}{% endif %}
+                                          {% if color %},"color":{{ color | to_json }}{% endif %}
+                                        }
+                                        {% set ns.first = false %}
+
+                                      {% elif r.slot is defined and r.slot < ents | count %}
+                                        {% set selected_font = selected_fonts[r.slot] %}
+                                        {% set effective_font = selected_font if selected_font != 'auto' else r.font | default('') %}
+                                        {% if not ns.first %},{% endif %}
+                                        {
+                                          "id":{{ r.id | to_json }},
+                                          "box":{{ r.box | to_json }},
+                                          "text":{{ vals[r.slot] | string | to_json }}
+                                          {% if effective_font %},"font":{{ effective_font | to_json }}{% endif %}
+                                          {% if r.align is defined %},"align":{{ r.align | to_json }}{% endif %}
+                                          {% if r.valign is defined %},"valign":{{ r.valign | to_json }}{% endif %}
+                                          {% if color %},"color":{{ color | to_json }}{% endif %}
+                                        }
+                                        {% set ns.first = false %}
+                                      {% endif %}
+
+                                    {% endfor %}
+                                  {% endif %}
+                                ]
+                              }
+                              }
                   else:
                     - if:
                         - condition: template
